@@ -33,9 +33,6 @@ function Accordion({ title, defaultOpen = true, children }) {
   );
 }
 
-/* ════════════════════════════════════════════════════════════════
-   App — thin orchestration shell
-   ════════════════════════════════════════════════════════════════ */
 export default function App() {
   /* ── Form state ── */
   const [apiBaseUrl, setApiBaseUrl] = useState(env.apiBaseUrl);
@@ -43,7 +40,7 @@ export default function App() {
   const [loginEmail, setLoginEmail] = useState(env.loginEmail);
   const [loginPassword, setLoginPassword] = useState(env.loginPassword);
   const [roomId, setRoomId] = useState(env.roomId);
-  const [participantName, setParticipantName] = useState("CatSpeak Demo User");
+  const [participantName, setParticipantName] = useState("");
   const [participantIdentity, setParticipantIdentity] = useState("");
 
   /* ── Connection state ── */
@@ -79,7 +76,7 @@ export default function App() {
       return;
     }
     setJwt(result.data.token);
-    if (!participantName && result.data.user?.username) {
+    if (result.data.user?.username) {
       setParticipantName(result.data.user.username);
     }
     setStatus("Logged in ✓");
@@ -174,7 +171,7 @@ export default function App() {
           <span className="version">MVP v0.3</span>
         </div>
 
-        <Accordion title="🔌 Connection" defaultOpen={true}>
+        <Accordion title="Login" defaultOpen={true}>
           <div className="form-grid">
             <div className="form-row">
               <label>
@@ -204,18 +201,18 @@ export default function App() {
                 Login
               </button>
             </div>
-            <label>
+            {/* <label>
               JWT Token
               <input
                 value={jwt}
                 onChange={(e) => setJwt(e.target.value)}
                 placeholder="Auto-filled by login, or paste manually"
               />
-            </label>
+            </label> */}
           </div>
         </Accordion>
 
-        <Accordion title="🏠 Room Settings" defaultOpen={true}>
+        {/* <Accordion title="🏠 Room Settings" defaultOpen={true}>
           <div className="form-grid">
             <label>
               Room ID
@@ -247,15 +244,15 @@ export default function App() {
               Room capacity: <strong>{MAX_PARTICIPANTS}</strong> participants
             </div>
           </div>
-        </Accordion>
+        </Accordion> */}
 
-        <button
+        {/* <button
           className="btn-gradient"
           disabled={!canRequestToken}
           onClick={handleGetTokenAndJoin}
         >
           🚀 Get Token & Join
-        </button>
+        </button> */}
 
         <StatusBadge status={status} error={error} serverUrl={serverUrl} />
       </div>
@@ -332,13 +329,13 @@ export default function App() {
             <div className="placeholder-icon">🐾</div>
             <div className="placeholder-title">Ready to Connect</div>
             <div className="placeholder-hint">
-              Log in first, then browse rooms or enter a Room ID manually.
+              Log in first before joining the video call.
             </div>
-            <div className="multi-tab-hint">
+            {/* <div className="multi-tab-hint">
               💡 <strong>Multi-user testing:</strong> Open this page in multiple
               browser tabs (or incognito) and join with different names to test
               multi-participant calls.
-            </div>
+            </div> */}
           </div>
         )}
       </div>
