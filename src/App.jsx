@@ -176,14 +176,6 @@ export default function App() {
 
         <Accordion title="🔌 Connection" defaultOpen={true}>
           <div className="form-grid">
-            <label>
-              API Base URL
-              <input
-                value={apiBaseUrl}
-                onChange={(e) => setApiBaseUrl(e.target.value)}
-                placeholder="https://api.catspeak.com.vn/"
-              />
-            </label>
             <div className="form-row">
               <label>
                 Email
