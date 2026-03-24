@@ -33,20 +33,50 @@ function Accordion({ title, defaultOpen = true, children }) {
   );
 }
 
+/* ── JWT helpers ── */
+function decodeJwtPayload(token) {
+  try {
+    const base64 = token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
+    return JSON.parse(atob(base64));
+  } catch {
+    return null;
+  }
+}
+
+function isTokenExpired(token) {
+  if (!token) return true;
+  const payload = decodeJwtPayload(token);
+  if (!payload?.exp) return true;
+  return payload.exp * 1000 < Date.now();
+}
+
 export default function App() {
-  /* ── Form state ── */
+  /* ── Form state (restore from localStorage) ── */
   const [apiBaseUrl, setApiBaseUrl] = useState(env.apiBaseUrl);
-  const [jwt, setJwt] = useState(env.jwt);
+  const [jwt, setJwt] = useState(() => {
+    const stored = localStorage.getItem("catspeak_jwt");
+    if (stored && !isTokenExpired(stored)) return stored;
+    localStorage.removeItem("catspeak_jwt");
+    localStorage.removeItem("catspeak_username");
+    return env.jwt;
+  });
   const [loginEmail, setLoginEmail] = useState(env.loginEmail);
   const [loginPassword, setLoginPassword] = useState(env.loginPassword);
   const [roomId, setRoomId] = useState(env.roomId);
-  const [participantName, setParticipantName] = useState("");
+  const [participantName, setParticipantName] = useState(
+    () => localStorage.getItem("catspeak_username") || "",
+  );
   const [participantIdentity, setParticipantIdentity] = useState("");
 
   /* ── Connection state ── */
   const [serverUrl, setServerUrl] = useState("");
   const [participantToken, setParticipantToken] = useState("");
-  const [status, setStatus] = useState("Idle");
+  const [status, setStatus] = useState(() =>
+    localStorage.getItem("catspeak_jwt") &&
+    !isTokenExpired(localStorage.getItem("catspeak_jwt"))
+      ? "Logged in ✓"
+      : "Idle",
+  );
   const [error, setError] = useState("");
   const [connected, setConnected] = useState(false);
   const [connectTime, setConnectTime] = useState(null);
@@ -60,12 +90,12 @@ export default function App() {
   const canRequestToken = useMemo(() => apiBaseUrl && jwt, [apiBaseUrl, jwt]);
   const inRoom = connected && participantToken && serverUrl;
 
-  /* ── Login handler (uses tokenService) ── */
+  /* ── Login handler ── */
   const handleLogin = useCallback(async () => {
     setError("");
     setStatus("Logging in...");
     if (!canLogin) {
-      setError("API Base URL, email, and password are required.");
+      setError("Email and password are required.");
       setStatus("Failed");
       return;
     }
@@ -75,12 +105,25 @@ export default function App() {
       setStatus("Failed");
       return;
     }
-    setJwt(result.data.token);
-    if (result.data.user?.username) {
-      setParticipantName(result.data.user.username);
-    }
+    const token = result.data.token;
+    const username = result.data.user?.username || "";
+    setJwt(token);
+    setParticipantName(username);
+    localStorage.setItem("catspeak_jwt", token);
+    if (username) localStorage.setItem("catspeak_username", username);
     setStatus("Logged in ✓");
-  }, [apiBaseUrl, canLogin, loginEmail, loginPassword, participantName]);
+  }, [apiBaseUrl, canLogin, loginEmail, loginPassword]);
+
+  /* ── Logout handler ── */
+  const handleLogout = useCallback(() => {
+    setJwt("");
+    setParticipantName("");
+    setPreJoinRoomId(null);
+    setError("");
+    setStatus("Idle");
+    localStorage.removeItem("catspeak_jwt");
+    localStorage.removeItem("catspeak_username");
+  }, []);
 
   /* ── Token request handler (uses tokenService) ── */
   const requestToken = useCallback(
@@ -171,46 +214,57 @@ export default function App() {
           <span className="version">MVP v0.3</span>
         </div>
 
-        <Accordion title="Login" defaultOpen={true}>
-          <div className="form-grid">
-            <div className="form-row">
-              <label>
-                Email
-                <input
-                  value={loginEmail}
-                  onChange={(e) => setLoginEmail(e.target.value)}
-                  placeholder="you@email.com"
-                />
-              </label>
-              <label>
-                Password
-                <input
-                  type="password"
-                  value={loginPassword}
-                  onChange={(e) => setLoginPassword(e.target.value)}
-                  placeholder="••••••"
-                />
-              </label>
+        {jwt && !isTokenExpired(jwt) ? (
+          <div className="logged-in-card">
+            <div className="logged-in-info">
+              <span className="logged-in-avatar">
+                {participantName?.charAt(0)?.toUpperCase() || "?"}
+              </span>
+              <div>
+                <div className="logged-in-name">
+                  {participantName || "User"}
+                </div>
+                <div className="logged-in-status">Logged in</div>
+              </div>
             </div>
-            <div className="button-row">
-              <button
-                className="btn-primary"
-                disabled={!canLogin}
-                onClick={handleLogin}
-              >
-                Login
-              </button>
-            </div>
-            {/* <label>
-              JWT Token
-              <input
-                value={jwt}
-                onChange={(e) => setJwt(e.target.value)}
-                placeholder="Auto-filled by login, or paste manually"
-              />
-            </label> */}
+            <button className="btn-danger btn-sm" onClick={handleLogout}>
+              Logout
+            </button>
           </div>
-        </Accordion>
+        ) : (
+          <Accordion title="Login" defaultOpen={true}>
+            <div className="form-grid">
+              <div className="form-row">
+                <label>
+                  Email
+                  <input
+                    value={loginEmail}
+                    onChange={(e) => setLoginEmail(e.target.value)}
+                    placeholder="you@email.com"
+                  />
+                </label>
+                <label>
+                  Password
+                  <input
+                    type="password"
+                    value={loginPassword}
+                    onChange={(e) => setLoginPassword(e.target.value)}
+                    placeholder="••••••"
+                  />
+                </label>
+              </div>
+              <div className="button-row">
+                <button
+                  className="btn-primary"
+                  disabled={!canLogin}
+                  onClick={handleLogin}
+                >
+                  Login
+                </button>
+              </div>
+            </div>
+          </Accordion>
+        )}
 
         {/* <Accordion title="🏠 Room Settings" defaultOpen={true}>
           <div className="form-grid">

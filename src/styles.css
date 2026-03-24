@@ -1282,3 +1282,46 @@ button:disabled {
     height: 220px;
   }
 }
+
+/* ── Logged-in Card ──────────────────────────── */
+.logged-in-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+
+.logged-in-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.logged-in-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--gradient);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #fff;
+  flex-shrink: 0;
+}
+
+.logged-in-name {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.logged-in-status {
+  font-size: 0.72rem;
+  color: var(--success);
+  font-weight: 500;
+}
