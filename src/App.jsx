@@ -50,6 +50,16 @@ function isTokenExpired(token) {
   return payload.exp * 1000 < Date.now();
 }
 
+/* ── Path routing helpers ── */
+function parseRoomFromPath() {
+  const match = window.location.pathname.match(/^\/room\/(\d+)/);
+  return match ? match[1] : null;
+}
+
+function setPath(path) {
+  window.history.replaceState(null, "", path ? `/${path}` : "/");
+}
+
 export default function App() {
   /* ── Form state (restore from localStorage) ── */
   const [apiBaseUrl, setApiBaseUrl] = useState(env.apiBaseUrl);
@@ -83,6 +93,11 @@ export default function App() {
   const [preJoinRoomId, setPreJoinRoomId] = useState(null);
   const micCamRef = useRef({ micOn: false, cameraOn: false });
 
+  /* ── Pending room from share link (for login redirect) ── */
+  const [pendingRoomId, setPendingRoomId] = useState(() => parseRoomFromPath());
+
+  const isLoggedIn = jwt && !isTokenExpired(jwt);
+
   const canLogin = useMemo(
     () => apiBaseUrl && loginEmail && loginPassword,
     [apiBaseUrl, loginEmail, loginPassword],
@@ -112,7 +127,16 @@ export default function App() {
     localStorage.setItem("catspeak_jwt", token);
     if (username) localStorage.setItem("catspeak_username", username);
     setStatus("Logged in ✓");
-  }, [apiBaseUrl, canLogin, loginEmail, loginPassword]);
+
+    // If user arrived via share link, go to pre-join
+    const pending = pendingRoomId || parseRoomFromPath();
+    if (pending) {
+      setPendingRoomId(null);
+      setRoomId(pending);
+      setPreJoinRoomId(pending);
+      setPath(`room/${pending}`);
+    }
+  }, [apiBaseUrl, canLogin, loginEmail, loginPassword, pendingRoomId]);
 
   /* ── Logout handler ── */
   const handleLogout = useCallback(() => {
@@ -178,12 +202,14 @@ export default function App() {
     setConnectTime(null);
     setStatus("Idle");
     setError(reason || "");
+    setPath("");
   }, []);
 
   /* ── Select room from list → show pre-join ── */
   const handleSelectRoom = useCallback((selectedRoomId) => {
     setRoomId(String(selectedRoomId));
     setPreJoinRoomId(String(selectedRoomId));
+    setPath(`room/${selectedRoomId}`);
   }, []);
 
   /* ── Confirm join from pre-join screen ── */
@@ -201,7 +227,32 @@ export default function App() {
 
   const handleBackFromPreJoin = useCallback(() => {
     setPreJoinRoomId(null);
+    setPath("");
   }, []);
+
+  /* ── On mount: if logged in and hash has room, go to pre-join ── */
+  useEffect(() => {
+    const hashRoomId = parseRoomFromPath();
+    if (hashRoomId && isLoggedIn && !preJoinRoomId && !inRoom) {
+      setRoomId(hashRoomId);
+      setPreJoinRoomId(hashRoomId);
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  /* ── Listen for hash changes (browser back/forward) ── */
+  useEffect(() => {
+    const onHashChange = () => {
+      const hashRoomId = parseRoomFromPath();
+      if (hashRoomId && isLoggedIn) {
+        setRoomId(hashRoomId);
+        setPreJoinRoomId(hashRoomId);
+      } else if (!hashRoomId) {
+        setPreJoinRoomId(null);
+      }
+    };
+    window.addEventListener("popstate", onHashChange);
+    return () => window.removeEventListener("popstate", onHashChange);
+  }, [isLoggedIn]);
 
   /* ── Render ── */
   return (
@@ -383,13 +434,10 @@ export default function App() {
             <div className="placeholder-icon">🐾</div>
             <div className="placeholder-title">Ready to Connect</div>
             <div className="placeholder-hint">
-              Log in first before joining the video call.
+              {pendingRoomId
+                ? `Log in to join Room #${pendingRoomId}`
+                : "Log in first before joining the video call."}
             </div>
-            {/* <div className="multi-tab-hint">
-              💡 <strong>Multi-user testing:</strong> Open this page in multiple
-              browser tabs (or incognito) and join with different names to test
-              multi-participant calls.
-            </div> */}
           </div>
         )}
       </div>

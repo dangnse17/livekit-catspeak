@@ -1186,6 +1186,16 @@ button:disabled {
   font-weight: 700;
   color: var(--text-primary);
   margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.prejoin-share-btn {
+  font-size: 0.72rem !important;
+  padding: 4px 10px !important;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .prejoin-tags {
@@ -1251,6 +1261,23 @@ button:disabled {
 
 .toggle-label {
   font-size: 0.82rem;
+}
+
+.mic-level-bar {
+  width: 40px;
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(52, 211, 153, 0.2);
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.mic-level-fill {
+  display: block;
+  height: 100%;
+  border-radius: 2px;
+  background: var(--success);
+  transition: width 0.08s linear;
 }
 
 /* Action buttons */

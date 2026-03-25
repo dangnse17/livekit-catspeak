@@ -7,6 +7,7 @@ import {
 import { useActiveSpeaker } from "../hooks/useActiveSpeaker";
 import { useParticipantLimit } from "../hooks/useParticipantLimit";
 import { useGhostCleanup } from "../hooks/useGhostCleanup";
+import { useParticipantNotify } from "../hooks/useParticipantNotify";
 import { RoomHeader } from "./RoomHeader";
 import { VideoGrid } from "./VideoGrid";
 import { ParticipantSidebar } from "./ParticipantSidebar";
@@ -26,6 +27,9 @@ export function RoomInner({ roomName, connectTime, onLeave }) {
   const { isSpeaking } = useActiveSpeaker();
   const { currentCount, maxCount, isNearCapacity, isFull } =
     useParticipantLimit();
+
+  // Play join/leave notification sounds
+  useParticipantNotify();
 
   // Ghost cleanup: call onLeave when disconnected unexpectedly
   useGhostCleanup(onLeave);

@@ -19,7 +19,16 @@ export function PreJoinScreen({
   const [micOn, setMicOn] = useState(false);
   const [cameraOn, setCameraOn] = useState(false);
   const [stream, setStream] = useState(null);
+  const [copied, setCopied] = useState(false);
   const videoRef = useRef(null);
+
+  const copyLink = useCallback(() => {
+    const url = `${window.location.origin}/room/${roomId}`;
+    navigator.clipboard.writeText(url).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  }, [roomId]);
 
   // Fetch room info
   useEffect(() => {
@@ -52,7 +61,6 @@ export function PreJoinScreen({
         videoRef.current.srcObject = s;
       }
     } catch {
-      // Camera not available — fail silently
       setCameraOn(false);
     }
   }, []);
@@ -75,18 +83,77 @@ export function PreJoinScreen({
     }
   }, [cameraOn]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Mic monitoring (loopback so user hears themselves)
+  const micStreamRef = useRef(null);
+  const audioCtxRef = useRef(null);
+  const [micLevel, setMicLevel] = useState(0);
+
+  const startMic = useCallback(async () => {
+    try {
+      const s = await navigator.mediaDevices.getUserMedia({ audio: true });
+      micStreamRef.current = s;
+      const ctx = new AudioContext();
+      audioCtxRef.current = ctx;
+      const source = ctx.createMediaStreamSource(s);
+
+      // Loopback: let user hear their own voice
+      // Use a small gain to avoid feedback if speakers are used
+      const gain = ctx.createGain();
+      gain.gain.value = 0.8;
+      source.connect(gain);
+      gain.connect(ctx.destination);
+
+      // Volume meter
+      const analyser = ctx.createAnalyser();
+      analyser.fftSize = 256;
+      source.connect(analyser);
+      const data = new Uint8Array(analyser.frequencyBinCount);
+      const poll = () => {
+        if (!audioCtxRef.current) return;
+        analyser.getByteFrequencyData(data);
+        const avg = data.reduce((a, b) => a + b, 0) / data.length;
+        setMicLevel(Math.min(avg / 128, 1));
+        requestAnimationFrame(poll);
+      };
+      poll();
+    } catch {
+      setMicOn(false);
+    }
+  }, []);
+
+  const stopMic = useCallback(() => {
+    if (micStreamRef.current) {
+      micStreamRef.current.getTracks().forEach((t) => t.stop());
+      micStreamRef.current = null;
+    }
+    if (audioCtxRef.current) {
+      audioCtxRef.current.close();
+      audioCtxRef.current = null;
+    }
+    setMicLevel(0);
+  }, []);
+
+  useEffect(() => {
+    if (micOn) {
+      startMic();
+    } else {
+      stopMic();
+    }
+  }, [micOn]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      if (stream) {
-        stream.getTracks().forEach((t) => t.stop());
-      }
+      if (stream) stream.getTracks().forEach((t) => t.stop());
+      if (micStreamRef.current) micStreamRef.current.getTracks().forEach((t) => t.stop());
+      if (audioCtxRef.current) audioCtxRef.current.close();
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleJoin = () => {
     // Stop the preview stream before joining (LiveKit will create its own)
     stopCamera();
+    stopMic();
     onJoin({ micOn, cameraOn });
   };
 
@@ -160,6 +227,13 @@ export function PreJoinScreen({
 
           <h2 className="prejoin-room-name">
             {room?.name || `Room ${roomId}`}
+            <button
+              className="btn-sm btn-ghost prejoin-share-btn"
+              onClick={copyLink}
+              title="Copy invite link"
+            >
+              {copied ? "✅ Copied!" : "🔗 Share"}
+            </button>
           </h2>
 
           {/* Meta tags */}
@@ -202,6 +276,14 @@ export function PreJoinScreen({
               <span className="toggle-label">
                 {micOn ? "Mic on" : "Mic off"}
               </span>
+              {micOn && (
+                <span className="mic-level-bar">
+                  <span
+                    className="mic-level-fill"
+                    style={{ width: `${micLevel * 100}%` }}
+                  />
+                </span>
+              )}
             </button>
 
             <button
